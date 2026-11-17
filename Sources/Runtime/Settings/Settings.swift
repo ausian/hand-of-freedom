@@ -40,10 +40,12 @@ public struct GateConfig: Sendable, Equatable, Codable {
     /// Reads the Hand of Freedom addon's marker to scroll game windows that take the mouse wheel, and to do
     /// nothing over other windows. Needs the addon and Screen Recording.
     public var scrollOverWindows = false
+    /// Key bindings for physical clicks, independent of finger-motion mappings.
+    public var clickBindings = ClickBindings()
 
     public init() {}
 
-    private enum CodingKeys: String, CodingKey { case swallowTrackpadScroll, swallowGestureEvents, scrollModifier, scrollOverWindows }
+    private enum CodingKeys: String, CodingKey { case swallowTrackpadScroll, swallowGestureEvents, scrollModifier, scrollOverWindows, clickBindings }
 
     /// Keys missing from an older file keep their defaults.
     public init(from decoder: Decoder) throws {
@@ -53,6 +55,7 @@ public struct GateConfig: Sendable, Equatable, Codable {
         swallowGestureEvents = try c.decodeIfPresent(Bool.self, forKey: .swallowGestureEvents) ?? d.swallowGestureEvents
         scrollModifier = (try? c.decodeIfPresent(ScrollModifier.self, forKey: .scrollModifier)) ?? d.scrollModifier
         scrollOverWindows = try c.decodeIfPresent(Bool.self, forKey: .scrollOverWindows) ?? d.scrollOverWindows
+        clickBindings = try c.decodeIfPresent(ClickBindings.self, forKey: .clickBindings) ?? d.clickBindings
     }
 }
 

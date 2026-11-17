@@ -11,7 +11,8 @@ trackpad ─► MultitouchSupport callback ─► HotLoop ─► GestureEngine �
 
 Everything that decides and sends input runs synchronously inside the MultitouchSupport callback, on
 the framework's own thread: one trackpad frame in, at most four posted events out, no thread hop. Other
-threads talk to it only through atomics and a lock-free ring buffer.
+threads communicate through atomics and a lock-free ring buffer. This fork also uses a lock to serialize
+injection against emergency releases on focus changes.
 
 ## Targets
 
@@ -30,9 +31,9 @@ private framework goes in `PlatformBackends`; threads, timers, files and atomics
 
 ## Hot-path rules
 
-Inside the touch callback: no heap allocation, no locks, no Objective-C, no strings or logging, no calls
-back into MultitouchSupport. Every type touched per frame is `BitwiseCopyable`. A release-build test
-counts allocations while replaying frames and fails on any.
+The upstream project avoids allocation, locks and Objective-C on this path. This fork adds an `NSLock`
+around each touch frame to serialize it with emergency releases. The performance impact on different
+hardware has not been characterized. The allocation test still exercises the loop in a release build.
 
 The activation flag is read before the config mailbox, and the controller publishes a config before
 raising the flag, so the first active frame already uses it.

@@ -1,20 +1,23 @@
 import Darwin
+import Foundation
 import GestureCore
 import PlatformBackends
 
 /// Runs the engine inside the touch callback and injects synchronously, with no thread hop.
 ///
 /// Single owner: every `var` is touched only on the touch source's thread. Other threads talk to it only
-/// through `SharedFlags` atomics, the `ConfigMailbox`, and the trace ring. Built once per process;
-/// the injector is never replaced. Hot-path rules: no allocation, no lock, no Objective-C, no strings,
-/// no printing (docs/how-it-works.md).
+/// through `SharedFlags` atomics, the `ConfigMailbox`, and the trace ring. A lock serializes frames
+/// with emergency releases. Built once per process; the injector is never replaced.
 public final class HotLoop: TouchFrameSink, @unchecked Sendable {
     private let injector: any Injector
     private let flags: SharedFlags
     private let mailbox: ConfigMailbox<EngineConfig>
     private let ring: SPSCRing<TraceEvent>
 
+    // Serialize frame injection with emergency releases on focus changes.
+    private let injectionLock = NSLock()
     private var engine = GestureEngine()
+    private var shortcutRemainder = SIMD2<Float>.zero
     private var config: EngineConfig
     private var seenGeneration: UInt64 = 0
     private var lastActive: Bool? = nil
@@ -31,6 +34,8 @@ public final class HotLoop: TouchFrameSink, @unchecked Sendable {
     }
 
     public func handle(_ frame: TouchFrame) {
+        injectionLock.lock()
+        defer { injectionLock.unlock() }
         let t0 = frame.entryNanos
         if let owner {
             assert(pthread_equal(owner, pthread_self()) != 0, "HotLoop used from two threads")
@@ -68,7 +73,24 @@ public final class HotLoop: TouchFrameSink, @unchecked Sendable {
         }
 
         ring.tryPush(.frame(frame))
-        out.merge(engine.process(frame, config: config, targetActive: active, route: route))
+        let shortcutHeld = flags.activation.physicalShortcutHeld.load(ordering: .acquiring) && active
+        out.merge(engine.process(frame, config: config, targetActive: active && !shortcutHeld, route: route))
+        if shortcutHeld {
+            // While the physical click is a keyboard shortcut, use the same finger motion for
+            // ordinary cursor movement instead of a synthetic held mouse-button drag.
+            let delta = engine.trace.meanDeltaMM
+            var px = SIMD2<Float>(delta.x, -delta.y) * config.pointer.pxPerMM
+            if config.pointer.invertY { px.y = -px.y }
+            let length = (px.x * px.x + px.y * px.y).squareRoot()
+            if length > config.pointer.maxStepPx && length > 0 { px *= config.pointer.maxStepPx / length }
+            px += shortcutRemainder
+            let rounded = SIMD2<Float>(px.x.rounded(), px.y.rounded())
+            shortcutRemainder = px - rounded
+            out.movePx = SIMD2<Int32>(Int32(rounded.x), Int32(rounded.y))
+            out.held = nil
+            out.scrollTicks = 0
+        } else { shortcutRemainder = .zero }
+        flags.activation.touchingFingers.store(engine.state.countedFingers, ordering: .releasing)
         flags.activation.scrollPassthrough.store(engine.state.phase == .scrolling, ordering: .releasing)
         apply(out, t0: t0)
 
@@ -97,12 +119,16 @@ public final class HotLoop: TouchFrameSink, @unchecked Sendable {
 
     /// Any thread. Releases the held button now; the engine suspends on its next frame.
     public func abortActiveDrag() {
+        injectionLock.lock()
+        defer { injectionLock.unlock() }
         injector.releaseAll()
         flags.requestReset(.abort)
     }
 
     /// Before a touch source restart. Releases now; the engine forgets all contacts on its next frame.
     public func abortAndForget() {
+        injectionLock.lock()
+        defer { injectionLock.unlock() }
         injector.releaseAll()
         flags.requestReset(.abortAndForget)
     }

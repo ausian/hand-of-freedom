@@ -321,6 +321,7 @@ public final class PipelineController {
         core.flags.activation.swallowTrackpadScroll.store(gateConfig.swallowTrackpadScroll, ordering: .relaxed)
         core.flags.activation.swallowGestureEvents.store(gateConfig.swallowGestureEvents, ordering: .relaxed)
         core.flags.activation.scrollModifierMask.store(gateConfig.scrollModifier.mask, ordering: .relaxed)
+        core.flags.activation.clickBindings.store(gateConfig.clickBindings.packed, ordering: .releasing)
 
         inputs.enabled = settings.enabled && !asleep
         inputs.targetFrontmost = profile != nil
@@ -329,8 +330,12 @@ public final class PipelineController {
         inputs.permissions = permissions.snapshot
         let blockers = ActivationRule.blockers(inputs)
         let active = blockers.isEmpty
-        if wasActive && !active { core.hotLoop.abortActiveDrag() }   // release now; the engine follows next frame
+        // Disable new gesture output before waiting for any in-flight frame and releasing its button.
         core.flags.activation.targetActive.store(active, ordering: .releasing)
+        if wasActive && !active {
+            gate?.cancelHeldKey()
+            core.hotLoop.abortActiveDrag()
+        }
         wasActive = active
         updateMarker(active: active, profile: profile)
 

@@ -59,6 +59,25 @@ struct HotLoopTests {
         #expect(rig.ups == [.right])                      // the abort's release; the engine's own is a no-op
     }
 
+    @Test func shortcutHoldReleasesCameraButtonAndMovesCursor() {
+        var b = FrameBuilder()
+        b.land(1, at: (60, 50)); b.land(2, at: (80, 50))
+        b.frames(3); b.moveAll(by: (0.5, 0), frames: 5)
+        let split = b.allFrames.count
+        b.moveAll(by: (0.5, 0), frames: 8)
+        let frames = b.allFrames
+        let rig = Rig()
+        rig.feed(Array(frames[..<split]))
+        #expect(rig.injector.held.contains(.right))
+        rig.flags.activation.physicalShortcutHeld.store(true, ordering: .releasing)
+        let before = rig.calls.count
+        rig.feed(Array(frames[split...]))
+        let heldCalls = Array(rig.calls.dropFirst(before))
+        #expect(heldCalls.contains(.buttonUp(.right)))
+        #expect(heldCalls.contains { if case .move(let x, _, held: nil) = $0 { x != 0 } else { false } })
+        #expect(!rig.injector.held.contains(.right))
+    }
+
     @Test func publishedConfigIsUsedFromTheNextFrame() {
         var b = FrameBuilder()
         b.land(1, at: (60, 50)); b.land(2, at: (80, 50))

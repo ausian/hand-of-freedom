@@ -7,10 +7,13 @@ public protocol EventGate: AnyObject, Sendable {
     func uninstall()
     /// Re-enables the gate if the system disabled it. Called once a second on the tap thread.
     func checkEnabled()
+    func cancelHeldKey()
     /// Times the system disabled the gate and it was turned back on, since install.
     var reenables: Int32 { get }
     var swallowed: Int64 { get }
 }
+
+extension EventGate { public func cancelHeldKey() {} }
 
 extension EventTap: EventGate {
     public var reenables: Int32 { reenableCount.load(ordering: .relaxed) }

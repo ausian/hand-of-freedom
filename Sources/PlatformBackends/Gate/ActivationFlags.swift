@@ -6,6 +6,9 @@ import Synchronization
 /// the hot thread, and the marker pair by the marker capture's queue.
 public final class ActivationFlags: Sendable {
     public let targetActive = Atomic<Bool>(false)
+    public let touchingFingers = Atomic<Int32>(0)
+    public let clickBindings = Atomic<UInt64>(ClickBindings().packed)
+    public let physicalShortcutHeld = Atomic<Bool>(false)
     public let swallowTrackpadScroll = Atomic<Bool>(true)
     public let swallowGestureEvents = Atomic<Bool>(true)
     /// CGEventFlags bits that route a gesture to macOS scrolling while held. 0 means none.

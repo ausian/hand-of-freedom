@@ -9,6 +9,7 @@ struct SettingsView: View {
         TabView {
             Tab("General", systemImage: "gearshape") { GeneralSettings(model: model) }
             Tab("Gestures", systemImage: "hand.draw") { GestureSettings(model: model) }
+            Tab("Clicks", systemImage: "cursorarrow.click.2") { ClickSettings(model: model) }
             Tab("Diagnostics", systemImage: "stethoscope") { DiagnosticsView(model: model) }
         }
         .frame(minWidth: 480, minHeight: 420)
@@ -130,6 +131,35 @@ private struct GestureSettings: View {
             Text("Right button (turn)").tag(ButtonChoice.right)
             Text("Left button (orbit)").tag(ButtonChoice.left)
             Text("Middle button").tag(ButtonChoice.middle)
+        }
+    }
+}
+
+private struct ClickSettings: View {
+    let model: AppModel
+
+    var body: some View {
+        Form {
+            Section("Physical trackpad clicks") {
+                Text("Choose a key for a physical press with each number of fingers. A held press holds the key; moving your fingers moves the cursor. These settings apply only while the game is active.")
+                    .font(.callout).foregroundStyle(.secondary)
+                picker("One finger", \AppSettings.primaryProfile.gate.clickBindings.one)
+                picker("Two fingers", \AppSettings.primaryProfile.gate.clickBindings.two)
+                picker("Three fingers", \AppSettings.primaryProfile.gate.clickBindings.three)
+                picker("Four fingers", \AppSettings.primaryProfile.gate.clickBindings.four)
+                Text("Normal mouse click preserves the usual click. Assigning a key to one finger replaces the normal left click in the game.")
+                    .font(.callout).foregroundStyle(.secondary)
+            }
+            Section {
+                Button("Reset click bindings") { model.update { $0.primaryProfile.gate.clickBindings = ClickBindings() } }
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private func picker(_ title: String, _ path: WritableKeyPath<AppSettings, ClickKey>) -> some View {
+        Picker(title, selection: model.binding(path)) {
+            ForEach(ClickKey.allCases, id: \.self) { key in Text(key.title).tag(key) }
         }
     }
 }

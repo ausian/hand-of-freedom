@@ -24,6 +24,32 @@ struct SettingsTests {
         #expect(again.settings.primaryProfile.engine.pointer.pxPerMM == 14)
     }
 
+    @Test func clickBindingsMigrateAndPersist() throws {
+        let old = Data(#"{"scrollOverWindows":true}"#.utf8)
+        let migrated = try JSONDecoder().decode(GateConfig.self, from: old)
+        #expect(migrated.scrollOverWindows)
+        #expect(migrated.clickBindings.one == .normal)
+        #expect(migrated.clickBindings.two == .f10)
+        #expect(migrated.clickBindings.three == .f12)
+        #expect(migrated.clickBindings.four == .normal)
+        let store = SettingsStore(url: url)
+        store.update {
+            $0.primaryProfile.gate.clickBindings.one = .a
+            $0.primaryProfile.gate.clickBindings.two = .digit0
+            $0.primaryProfile.gate.clickBindings.three = .normal
+            $0.primaryProfile.gate.clickBindings.four = .f5
+        }
+        store.flush()
+        let saved = SettingsStore(url: url).settings.primaryProfile.gate.clickBindings
+        #expect(saved.one == .a && saved.two == .digit0 && saved.three == .normal && saved.four == .f5)
+        #expect(ClickBindings.encoded(in: saved.packed, fingers: 1) == 0)
+        #expect(ClickBindings.encoded(in: saved.packed, fingers: 2) == 29)
+        #expect(ClickBindings.encoded(in: saved.packed, fingers: 3) == nil)
+        #expect(ClickBindings.encoded(in: saved.packed, fingers: 4) == UInt16(32864))
+        #expect(ClickBindings.encoded(in: saved.packed, fingers: 0) == nil)
+        #expect(ClickBindings.encoded(in: saved.packed, fingers: 5) == nil)
+    }
+
     @Test func invalidUpdatesAreRejected() {
         let store = SettingsStore(url: url)
         #expect(!store.update { $0.primaryProfile.engine.pointer.pxPerMM = 0 })

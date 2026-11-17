@@ -1,5 +1,26 @@
 # Hand of Freedom
 
+This is a personal fork of [nchie/hand-of-freedom](https://github.com/nchie/hand-of-freedom).
+It adds configurable physical trackpad clicks and retains the original project's MIT licence and attribution.
+The upstream author has not endorsed or reviewed these changes.
+
+## Changes in this fork
+
+- **Settings → Clicks:** choose an ordinary click or a keyboard key for physical presses with one, two,
+  three or four fingers. The default is ordinary clicks for one and four fingers, F10 for two and F12
+  for three. F1–F12, digits and Latin letters are available. Existing settings migrate to these defaults.
+- A physical press holds the assigned key until release, and moving the fingers while holding moves the
+  cursor. Focus loss and app shutdown release held keys. The key mapping is applied while the target game
+  is active. A key assigned to one finger replaces the usual single-finger mouse click in the game.
+- Gesture injection and emergency releases are synchronized to reduce a race when switching applications.
+  This change has not been proven to resolve every possible stuck-camera issue.
+
+This fork has been tried on a built-in MacBook trackpad with World of Warcraft: Forever. Other hardware,
+click combinations and key mappings may behave differently. The event tap cannot reliably identify the
+source device of every mouse event, so clicking an external mouse while fingers rest on the trackpad can
+be interpreted as a configured trackpad click. To restore ordinary clicking, choose **Normal mouse click**
+for the relevant finger count or disable the app.
+
 Trackpad camera control for World of Warcraft on macOS. No more click-and-drag:
 
 - **Two fingers** turn your character (a right-button drag).
@@ -18,7 +39,7 @@ Taps stay taps, a resting palm or thumb is ignored, and the tool only acts while
 ## Install
 
 ```sh
-git clone https://github.com/nchie/hand-of-freedom.git
+git clone https://github.com/ausian/hand-of-freedom.git
 cd hand-of-freedom
 make install
 ```
